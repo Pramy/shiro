@@ -201,4 +201,99 @@ new SimpleHash(hashAlgorithmName, credentials, salt, hashIterations);
 </bean>
 ```
 
+配置好之后，需要配置realm
+
+第一个方法：
+
+配置认证器，将realm 注入到认证器中，然后SecurityManager再引用认证器
+
+```xml
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="cacheManager" ref="cacheManager"/>
+        <!--引用认证器-->
+        <property name="authenticator" ref="authenticator"/>
+    </bean>
+  <!--配置认证器，将realm注入进去-->
+    <bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
+        <property name="realms">
+            <list>
+                <ref bean="myRealm"/>
+                <ref bean="secondRealm"/>
+            </list>
+        </property>
+    </bean>
+```
+
+第二个方法：
+
+直接在SecurityManager中注入realm（推荐）
+
+```xml
+<bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+    <property name="cacheManager" ref="cacheManager"/>
+    <property name="realms">
+        <list>
+            <ref bean="myRealm"/>
+            <ref bean="secondRealm"/>
+        </list>
+    </property>
+</bean>
+```
+
+因为在初始化SecurityManager的时候会执行
+
+```java
+protected void afterRealmsSet() {
+    super.afterRealmsSet();
+  //判断认证器是否是ModularRealmAuthorizer，如果是话就会把realm设置给ModularRealmAuthorizer
+    if (this.authorizer instanceof ModularRealmAuthorizer) {
+        ((ModularRealmAuthorizer) this.authorizer).setRealms(getRealms());
+    }
+}
+```
+
+所以ModularRealmAuthorizer也会持有realms
+
+---
+
+如果配置了多Realm认证，需要配置认证策略，默认使用`AtLeastOneSuccessfulStrategy`
+
+```java
+protected AuthenticationInfo doAuthenticate(AuthenticationToken authenticationToken) throws AuthenticationException {
+    assertRealmsConfigured();
+    Collection<Realm> realms = getRealms();
+    if (realms.size() == 1) {
+        return doSingleRealmAuthentication(realms.iterator().next(), authenticationToken);
+    } else {
+      //多Realm认证
+        return doMultiRealmAuthentication(realms, authenticationToken);
+    }
+}
+```
+
+其中的doMultiRealmAuthentication方法中
+
+```java
+protected AuthenticationInfo doMultiRealmAuthentication(Collection<Realm> realms, AuthenticationToken token) {
+  //获取认证策略，默认使用AtLeastOneSuccessfulStrategy
+    AuthenticationStrategy strategy = getAuthenticationStrategy();
+		····中间内容省略
+  //返回所有认证成功的信息
+    return aggregate;
+}
+```
+
+- AtLeastOneSuccessfulStrategy：返回所有认证成功的信息，有一个成功就可以
+- FirstSuccessfulStrategy：返回第一个认证成功的信息，有一个成功就可以
+- AllSuccessfulStrategy：只有所有认证成功后才会返回所有的认证信息
+
+需要在认证器中配置
+
+```xml
+<bean id="authenticator" class="org.apache.shiro.authc.pam.ModularRealmAuthenticator">
+    <property name="authenticationStrategy">
+        <bean class="org.apache.shiro.authc.pam.AllSuccessfulStrategy"/>
+    </property>
+</bean>
+```
 
