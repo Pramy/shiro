@@ -16,7 +16,7 @@
 </filter-mapping>
 ```
 
-**DelegatingFilterProxy **是一个Filter的代理类 
+**DelegatingFilterProxy**是一个Filter的代理类 
 
 ```java
 //DelegatingFilterProxy.java 第326行 
