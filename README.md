@@ -1,5 +1,4 @@
 # shiro
-<<<<<<< HEAD
 ## shiro的web.xml的配置
 
 ```xml
