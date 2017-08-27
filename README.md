@@ -297,3 +297,60 @@ protected AuthenticationInfo doMultiRealmAuthentication(Collection<Realm> realms
 </bean>
 ```
 
+## 6.权限分配，角色分配
+
+需要配置权限认证的Realm，需要继承AuthorizingRealm
+
+然后实现两个方法
+
+```java
+//认证方法 
+protected AuthenticationInfo doGetAuthenticationInfo(AuthenticationToken token)
+//授权方法
+protected AuthorizationInfo doGetAuthorizationInfo(PrincipalCollection principals)
+```
+
+在授权方法中可以从数据库中查询role和permission
+
+```java
+Set<String> roles = new HashSet<>();
+Set<String> permison = new HashSet<>();
+SimpleAuthorizationInfo authorizationInfo = new SimpleAuthorizationInfo();
+//设置角色
+authorizationInfo.setRoles(roles);
+//设置权限
+authorizationInfo.setStringPermissions(permison);
+```
+
+## 7.注解配置
+
+- RequiresAuthentication：对应authc，需要被认证才可以登录
+- RequiresGuest：对应anon，可以匿名访问
+- RequiresPermissions：对应permission，需要权限认证
+- RequiresRoles：对应roles，需要角色认证
+- RequiresUser：对应user，需要被认证或者被记住
+
+需要开启spring对注解的支持，由于注解注入式AOP的方式
+
+```xml
+<!--重要，需要开启aop的自动代理-->
+<aop:aspectj-autoproxy />
+
+<bean  class="org.apache.shiro.spring.security.interceptor.AuthorizationAttributeSourceAdvisor">
+    <property name="securityManager" ref="securityManager"/>
+</bean>
+```
+
+但是，如果权限访问有误的话，会抛出UnauthorizedException.Exception，所以我们需要用spring的Exception来捕获异常
+
+```java
+@ExceptionHandler({UnauthorizedException.class})
+@ResponseStatus(HttpStatus.UNAUTHORIZED)
+public ModelAndView processUnauthenticatedException(NativeWebRequest request, UnauthorizedException e) {
+  ModelAndView mv = new ModelAndView();
+  mv.addObject("exception", e);
+  mv.setViewName("unauthorized");
+  return mv;
+}
+```
+
